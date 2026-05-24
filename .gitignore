@@ -1,0 +1,14 @@
+# Database file (akan dibuat otomatis saat first run)
+data/*.db
+data/*.db-journal
+
+# Uploaded files
+uploads/*
+!uploads/.gitkeep
+!uploads/.htaccess
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
