@@ -1,4 +1,7 @@
-# Database file (akan dibuat otomatis saat first run)
+# File konfigurasi rahasia (credentials Supabase, dll)
+.env
+
+# Database file SQLite (akan dibuat otomatis saat first run)
 data/*.db
 data/*.db-journal
 

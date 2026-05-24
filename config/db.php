@@ -1,28 +1,52 @@
 <?php
 declare(strict_types=1);
 
-define('DB_PATH', __DIR__ . '/../data/app.db');
+require_once __DIR__ . '/env.php';
+
 define('UPLOAD_DIR', __DIR__ . '/../uploads');
+define('DB_DRIVER', env('DB_DRIVER', 'sqlite')); // 'sqlite' | 'pgsql'
+define('DB_PATH', __DIR__ . '/../data/app.db');
 
 function db(): PDO {
     static $pdo = null;
-    if ($pdo === null) {
-        $isNew = !file_exists(DB_PATH);
-        if (!is_dir(dirname(DB_PATH))) {
-            mkdir(dirname(DB_PATH), 0775, true);
+    if ($pdo !== null) return $pdo;
+
+    if (DB_DRIVER === 'pgsql') {
+        $host = env('DB_HOST');
+        $port = env('DB_PORT', '5432');
+        $name = env('DB_NAME', 'postgres');
+        $user = env('DB_USER', 'postgres');
+        $pass = env('DB_PASSWORD');
+        if (!$host || !$pass) {
+            throw new RuntimeException(
+                'Konfigurasi PostgreSQL tidak lengkap. Set DB_HOST dan DB_PASSWORD pada file .env'
+            );
         }
-        $pdo = new PDO('sqlite:' . DB_PATH);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $pdo->exec('PRAGMA foreign_keys = ON');
-        if ($isNew) {
-            initSchema($pdo);
-        }
+        $dsn = "pgsql:host={$host};port={$port};dbname={$name};sslmode=require";
+        $pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_PERSISTENT => false,
+        ]);
+        return $pdo;
+    }
+
+    // SQLite (default, local dev)
+    $isNew = !file_exists(DB_PATH);
+    if (!is_dir(dirname(DB_PATH))) {
+        mkdir(dirname(DB_PATH), 0775, true);
+    }
+    $pdo = new PDO('sqlite:' . DB_PATH);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $pdo->exec('PRAGMA foreign_keys = ON');
+    if ($isNew) {
+        initSqliteSchema($pdo);
     }
     return $pdo;
 }
 
-function initSchema(PDO $pdo): void {
+function initSqliteSchema(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE pendaftar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +77,6 @@ function initSchema(PDO $pdo): void {
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ");
-
     $pdo->exec("
         CREATE TABLE berkas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +90,6 @@ function initSchema(PDO $pdo): void {
             FOREIGN KEY (pendaftar_id) REFERENCES pendaftar(id) ON DELETE CASCADE
         )
     ");
-
     $pdo->exec("
         CREATE TABLE admin (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +99,6 @@ function initSchema(PDO $pdo): void {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ");
-
     $defaultPass = password_hash('admin123', PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO admin (username, password_hash, nama) VALUES (?, ?, ?)");
     $stmt->execute(['admin', $defaultPass, 'Administrator']);
@@ -86,7 +107,9 @@ function initSchema(PDO $pdo): void {
 function generateNomorRegistrasi(): string {
     $year = date('Y');
     $pdo = db();
-    $count = $pdo->query("SELECT COUNT(*) FROM pendaftar WHERE nomor_registrasi LIKE 'S2IK-{$year}-%'")->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM pendaftar WHERE nomor_registrasi LIKE ?");
+    $stmt->execute(["S2IK-{$year}-%"]);
+    $count = (int)$stmt->fetchColumn();
     $seq = str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
     return "S2IK-{$year}-{$seq}";
 }

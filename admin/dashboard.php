@@ -10,7 +10,7 @@ $pdo = db();
 $sql = "SELECT id, nomor_registrasi, nama_lengkap, program_studi_pilihan, jalur_masuk, ipk_s1, status, created_at FROM pendaftar WHERE 1=1";
 $params = [];
 if ($search !== '') {
-    $sql .= " AND (nama_lengkap LIKE ? OR nomor_registrasi LIKE ? OR email LIKE ? OR asal_universitas LIKE ?)";
+    $sql .= " AND (LOWER(nama_lengkap) LIKE LOWER(?) OR LOWER(nomor_registrasi) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?) OR LOWER(asal_universitas) LIKE LOWER(?))";
     $like = '%' . $search . '%';
     array_push($params, $like, $like, $like, $like);
 }

@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ) VALUES (
                     :nomor, :nama, :tempat, :tgl, :jk, :agama, :nik, :alamat, :kota, :prov,
                     :hp, :email, :asal, :prodi_s1, :thn, :ipk, :prodi_pilih, :jalur, :pekerjaan, :instansi, :pass
-                )
+                ) RETURNING id
             ");
             $stmt->execute([
                 ':nomor' => $nomor,
@@ -128,7 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':instansi' => $old['instansi'] ?: null,
                 ':pass' => $passHash,
             ]);
-            $pendaftarId = (int)$pdo->lastInsertId();
+            $pendaftarId = (int)$stmt->fetchColumn();
+            $stmt->closeCursor();
 
             if (!is_dir(UPLOAD_DIR)) {
                 mkdir(UPLOAD_DIR, 0775, true);
