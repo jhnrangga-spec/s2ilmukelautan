@@ -1,14 +1,28 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "*.php", "use": "vercel-php@0.7.1" },
-    { "src": "admin/*.php", "use": "vercel-php@0.7.1" }
-  ],
+  "functions": {
+    "index.php": { "runtime": "vercel-php@0.7.1" },
+    "daftar.php": { "runtime": "vercel-php@0.7.1" },
+    "cek-status.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/index.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/dashboard.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/login.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/logout.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/detail.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/download.php": { "runtime": "vercel-php@0.7.1" },
+    "admin/export.php": { "runtime": "vercel-php@0.7.1" }
+  },
   "routes": [
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "^/admin/([^./]+)$", "dest": "/admin/$1.php" },
-    { "src": "^/([^./]+\.php.*)$", "dest": "/$1" },
-    { "src": "^/$", "dest": "/index.php" },
-    { "src": "^/([^./]+)$", "dest": "/$1.php" }
+    { "src": "^/admin/login$", "dest": "/admin/login.php" },
+    { "src": "^/admin/logout$", "dest": "/admin/logout.php" },
+    { "src": "^/admin/dashboard$", "dest": "/admin/dashboard.php" },
+    { "src": "^/admin/detail$", "dest": "/admin/detail.php" },
+    { "src": "^/admin/download$", "dest": "/admin/download.php" },
+    { "src": "^/admin/export$", "dest": "/admin/export.php" },
+    { "src": "^/admin/?$", "dest": "/admin/index.php" },
+    { "src": "^/daftar$", "dest": "/daftar.php" },
+    { "src": "^/cek-status$", "dest": "/cek-status.php" },
+    { "src": "^/$", "dest": "/index.php" }
   ]
 }
