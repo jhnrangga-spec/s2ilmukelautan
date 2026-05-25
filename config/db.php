@@ -107,10 +107,15 @@ function initSqliteSchema(PDO $pdo): void {
 function generateNomorRegistrasi(): string {
     $year = date('Y');
     $pdo = db();
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM pendaftar WHERE nomor_registrasi LIKE ?");
+    // SUBSTR + CAST supported by SQLite & PostgreSQL; MAX tahan terhadap row terhapus.
+    $stmt = $pdo->prepare("
+        SELECT MAX(CAST(SUBSTR(nomor_registrasi, " . (strlen("S2IK-{$year}-") + 1) . ") AS INTEGER))
+        FROM pendaftar
+        WHERE nomor_registrasi LIKE ?
+    ");
     $stmt->execute(["S2IK-{$year}-%"]);
-    $count = (int)$stmt->fetchColumn();
-    $seq = str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
+    $max = (int)$stmt->fetchColumn();
+    $seq = str_pad((string)($max + 1), 4, '0', STR_PAD_LEFT);
     return "S2IK-{$year}-{$seq}";
 }
 

@@ -1,16 +1,21 @@
 <?php
 require_once __DIR__ . '/../config/auth.php';
 db();
+startSession();
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $u = trim((string)($_POST['username'] ?? ''));
-    $p = (string)($_POST['password'] ?? '');
-    if (loginAdmin($u, $p)) {
-        header('Location: dashboard.php');
-        exit;
+    if (!csrfVerify($_POST['csrf_token'] ?? null)) {
+        $error = 'Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.';
+    } else {
+        $u = trim((string)($_POST['username'] ?? ''));
+        $p = (string)($_POST['password'] ?? '');
+        if (loginAdmin($u, $p)) {
+            header('Location: dashboard.php');
+            exit;
+        }
+        $error = 'Username atau password salah.';
     }
-    $error = 'Username atau password salah.';
 }
 
 $pageTitle = 'Login Admin';
@@ -28,6 +33,7 @@ include __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
             <div class="form-group">
                 <label>Username</label>
                 <input type="text" name="username" required autofocus>

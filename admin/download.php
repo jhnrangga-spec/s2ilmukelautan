@@ -45,27 +45,30 @@ if (isset($_GET['id']) && !empty($_GET['all'])) {
     }
 
     $tmpZip = tempnam(sys_get_temp_dir(), 'berkas_') . '.zip';
-    $zip = new ZipArchive();
-    if ($zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-        http_response_code(500);
-        exit('Gagal membuat ZIP.');
-    }
-    foreach ($berkas as $bk) {
-        $src = UPLOAD_DIR . '/' . $bk['nama_file'];
-        if (is_file($src)) {
-            $ext = pathinfo($bk['nama_asli'], PATHINFO_EXTENSION);
-            $entry = $bk['jenis'] . '.' . ($ext ?: pathinfo($bk['nama_file'], PATHINFO_EXTENSION));
-            $zip->addFile($src, $entry);
+    try {
+        $zip = new ZipArchive();
+        if ($zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            http_response_code(500);
+            exit('Gagal membuat ZIP.');
         }
-    }
-    $zip->close();
+        foreach ($berkas as $bk) {
+            $src = UPLOAD_DIR . '/' . basename(dirname($bk['nama_file'])) . '/' . basename($bk['nama_file']);
+            if (is_file($src)) {
+                $ext = pathinfo($bk['nama_asli'], PATHINFO_EXTENSION);
+                $entry = $bk['jenis'] . '.' . ($ext ?: pathinfo($bk['nama_file'], PATHINFO_EXTENSION));
+                $zip->addFile($src, $entry);
+            }
+        }
+        $zip->close();
 
-    $zipName = $p['nomor_registrasi'] . '_' . preg_replace('/[^a-zA-Z0-9]/', '_', $p['nama_lengkap']) . '.zip';
-    header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $zipName . '"');
-    header('Content-Length: ' . filesize($tmpZip));
-    readfile($tmpZip);
-    @unlink($tmpZip);
+        $zipName = $p['nomor_registrasi'] . '_' . preg_replace('/[^a-zA-Z0-9]/', '_', $p['nama_lengkap']) . '.zip';
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $zipName . '"');
+        header('Content-Length: ' . filesize($tmpZip));
+        readfile($tmpZip);
+    } finally {
+        if (is_file($tmpZip)) @unlink($tmpZip);
+    }
     exit;
 }
 
@@ -83,27 +86,30 @@ if (isset($_GET['everything'])) {
     if (empty($all)) { exit('Belum ada berkas yang diunggah.'); }
 
     $tmpZip = tempnam(sys_get_temp_dir(), 'berkas_all_') . '.zip';
-    $zip = new ZipArchive();
-    if ($zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-        http_response_code(500); exit('Gagal membuat ZIP.');
-    }
-    foreach ($all as $bk) {
-        $src = UPLOAD_DIR . '/' . $bk['nama_file'];
-        if (is_file($src)) {
-            $ext = pathinfo($bk['nama_asli'], PATHINFO_EXTENSION) ?: pathinfo($bk['nama_file'], PATHINFO_EXTENSION);
-            $folder = $bk['nomor_registrasi'] . '_' . preg_replace('/[^a-zA-Z0-9]/', '_', $bk['nama_lengkap']);
-            $entry = $folder . '/' . $bk['jenis'] . '.' . $ext;
-            $zip->addFile($src, $entry);
+    try {
+        $zip = new ZipArchive();
+        if ($zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            http_response_code(500); exit('Gagal membuat ZIP.');
         }
-    }
-    $zip->close();
+        foreach ($all as $bk) {
+            $src = UPLOAD_DIR . '/' . basename(dirname($bk['nama_file'])) . '/' . basename($bk['nama_file']);
+            if (is_file($src)) {
+                $ext = pathinfo($bk['nama_asli'], PATHINFO_EXTENSION) ?: pathinfo($bk['nama_file'], PATHINFO_EXTENSION);
+                $folder = $bk['nomor_registrasi'] . '_' . preg_replace('/[^a-zA-Z0-9]/', '_', $bk['nama_lengkap']);
+                $entry = $folder . '/' . $bk['jenis'] . '.' . $ext;
+                $zip->addFile($src, $entry);
+            }
+        }
+        $zip->close();
 
-    $name = 'semua_berkas_' . date('Ymd_His') . '.zip';
-    header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $name . '"');
-    header('Content-Length: ' . filesize($tmpZip));
-    readfile($tmpZip);
-    @unlink($tmpZip);
+        $name = 'semua_berkas_' . date('Ymd_His') . '.zip';
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $name . '"');
+        header('Content-Length: ' . filesize($tmpZip));
+        readfile($tmpZip);
+    } finally {
+        if (is_file($tmpZip)) @unlink($tmpZip);
+    }
     exit;
 }
 

@@ -13,6 +13,11 @@ if (!$p) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrfVerify($_POST['csrf_token'] ?? null)) {
+        flash('success', 'Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.');
+        header('Location: detail.php?id=' . $id);
+        exit;
+    }
     $newStatus = (string)($_POST['status'] ?? '');
     $catatan = trim((string)($_POST['catatan_admin'] ?? ''));
     if (in_array($newStatus, ['menunggu','diterima','ditolak','revisi'], true)) {
@@ -99,6 +104,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card">
     <h3>Verifikasi & Status</h3>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
         <div class="form-row">
             <div class="form-group">
                 <label>Status</label>
