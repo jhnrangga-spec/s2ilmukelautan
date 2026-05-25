@@ -1,5 +1,7 @@
 <?php
+require_once __DIR__ . '/config/env.php';
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/storage.php';
 db();
 
 $errors = [];
@@ -8,17 +10,17 @@ $registrationResult = null;
 
 const ALLOWED_MIME = [
     'application/pdf' => 'pdf',
-    'image/jpeg' => 'jpg',
-    'image/png' => 'png',
+    'image/jpeg'      => 'jpg',
+    'image/png'       => 'png',
 ];
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
 const REQUIRED_FILES = [
-    'berkas_ijazah' => 'Ijazah S1',
-    'berkas_transkrip' => 'Transkrip Nilai S1',
-    'berkas_ktp' => 'KTP / Identitas',
-    'berkas_foto' => 'Pas Foto',
-    'berkas_rekomendasi' => 'Surat Rekomendasi',
-    'berkas_proposal' => 'Proposal Penelitian Singkat',
+    'berkas_ijazah'       => 'Ijazah S1',
+    'berkas_transkrip'    => 'Transkrip Nilai S1',
+    'berkas_ktp'          => 'KTP / Identitas',
+    'berkas_foto'         => 'Pas Foto',
+    'berkas_rekomendasi'  => 'Surat Rekomendasi',
+    'berkas_proposal'     => 'Proposal Penelitian Singkat',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -32,12 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $old[$f] = trim((string)($_POST[$f] ?? ''));
     }
 
-    // Required validation
     $required = array_diff($fields, ['pekerjaan', 'instansi']);
     foreach ($required as $f) {
-        if ($old[$f] === '') {
-            $errors[$f] = 'Wajib diisi';
-        }
+        if ($old[$f] === '') { $errors[$f] = 'Wajib diisi'; }
     }
     if (!empty($old['email']) && !filter_var($old['email'], FILTER_VALIDATE_EMAIL)) {
         $errors['email'] = 'Format email tidak valid';
@@ -80,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             continue;
         }
         $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file($file['tmp_name']);
+        $mime  = $finfo->file($file['tmp_name']);
         if (!isset(ALLOWED_MIME[$mime])) {
             $errors[$key] = "{$label} harus berformat PDF/JPG/PNG";
             continue;
@@ -92,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo = db();
             $pdo->beginTransaction();
-            $nomor = generateNomorRegistrasi();
+            $nomor    = generateNomorRegistrasi();
             $passHash = password_hash($old['password'], PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("
                 INSERT INTO pendaftar (
@@ -106,55 +105,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ) RETURNING id
             ");
             $stmt->execute([
-                ':nomor' => $nomor,
-                ':nama' => $old['nama_lengkap'],
-                ':tempat' => $old['tempat_lahir'],
-                ':tgl' => $old['tanggal_lahir'],
-                ':jk' => $old['jenis_kelamin'],
-                ':agama' => $old['agama'],
-                ':nik' => $old['nik'],
-                ':alamat' => $old['alamat'],
-                ':kota' => $old['kota'],
-                ':prov' => $old['provinsi'],
-                ':hp' => $old['no_hp'],
-                ':email' => $old['email'],
-                ':asal' => $old['asal_universitas'],
-                ':prodi_s1' => $old['program_studi_s1'],
-                ':thn' => (int)$old['tahun_lulus_s1'],
-                ':ipk' => (float)str_replace(',', '.', $old['ipk_s1']),
+                ':nomor'       => $nomor,
+                ':nama'        => $old['nama_lengkap'],
+                ':tempat'      => $old['tempat_lahir'],
+                ':tgl'         => $old['tanggal_lahir'],
+                ':jk'          => $old['jenis_kelamin'],
+                ':agama'       => $old['agama'],
+                ':nik'         => $old['nik'],
+                ':alamat'      => $old['alamat'],
+                ':kota'        => $old['kota'],
+                ':prov'        => $old['provinsi'],
+                ':hp'          => $old['no_hp'],
+                ':email'       => $old['email'],
+                ':asal'        => $old['asal_universitas'],
+                ':prodi_s1'    => $old['program_studi_s1'],
+                ':thn'         => (int)$old['tahun_lulus_s1'],
+                ':ipk'         => (float)str_replace(',', '.', $old['ipk_s1']),
                 ':prodi_pilih' => $old['program_studi_pilihan'],
-                ':jalur' => $old['jalur_masuk'],
-                ':pekerjaan' => $old['pekerjaan'] ?: null,
-                ':instansi' => $old['instansi'] ?: null,
-                ':pass' => $passHash,
+                ':jalur'       => $old['jalur_masuk'],
+                ':pekerjaan'   => $old['pekerjaan'] ?: null,
+                ':instansi'    => $old['instansi'] ?: null,
+                ':pass'        => $passHash,
             ]);
             $pendaftarId = (int)$stmt->fetchColumn();
             $stmt->closeCursor();
 
-            if (!is_dir(UPLOAD_DIR)) {
-                mkdir(UPLOAD_DIR, 0775, true);
-            }
-            $dirRel = $nomor;
-            $dirAbs = UPLOAD_DIR . '/' . $dirRel;
-            if (!is_dir($dirAbs)) {
-                mkdir($dirAbs, 0775, true);
-            }
-
+            // === UPLOAD KE SUPABASE STORAGE (bukan filesystem lokal) ===
             $stmtFile = $pdo->prepare("
                 INSERT INTO berkas (pendaftar_id, jenis, nama_asli, nama_file, ukuran, mime_type)
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
             foreach ($uploadedFiles as $key => $data) {
-                $ext = ALLOWED_MIME[$data['mime']];
-                $safeName = $key . '.' . $ext;
-                $dest = $dirAbs . '/' . $safeName;
-                if (!move_uploaded_file($data['file']['tmp_name'], $dest)) {
-                    throw new RuntimeException('Gagal menyimpan berkas: ' . $data['label']);
+                $ext        = ALLOWED_MIME[$data['mime']];
+                $safeName   = $key . '.' . $ext;
+                $remotePath = $nomor . '/' . $safeName;   // mis. REG2024001/berkas_ijazah.pdf
+
+                $result = storage_upload($data['file']['tmp_name'], $remotePath, $data['mime']);
+                if (!$result['success']) {
+                    throw new RuntimeException('Gagal upload berkas ' . $data['label'] . ': ' . $result['error']);
                 }
+
                 $stmtFile->execute([
-                    $pendaftarId, $key,
+                    $pendaftarId,
+                    $key,
                     basename($data['file']['name']),
-                    $dirRel . '/' . $safeName,
+                    $remotePath,                           // simpan path remote di kolom nama_file
                     (int)$data['file']['size'],
                     $data['mime'],
                 ]);
@@ -173,19 +168,18 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <?php if ($registrationResult): ?>
-    <div class="card" style="text-align:center;">
-        <h2>Pendaftaran Berhasil!</h2>
-        <p>Terima kasih telah mendaftar Program Magister Ilmu Kelautan Universitas Khairun.</p>
-        <p>Catat <strong>Nomor Registrasi</strong> Anda untuk memantau status pendaftaran:</p>
-        <div style="font-size:32px; font-weight:800; color:var(--primary); margin:18px 0; letter-spacing:2px;">
-            <?= e($registrationResult) ?>
-        </div>
-        <p>Gunakan nomor registrasi dan password yang Anda buat untuk mengakses halaman <a href="cek-status.php">Cek Status</a>.</p>
-        <a href="cek-status.php" class="btn btn-primary">Cek Status Sekarang</a>
-        <a href="index.php" class="btn btn-secondary">Ke Beranda</a>
+<div class="card" style="text-align:center;">
+    <h2>Pendaftaran Berhasil!</h2>
+    <p>Terima kasih telah mendaftar Program Magister Ilmu Kelautan Universitas Khairun.</p>
+    <p>Catat <strong>Nomor Registrasi</strong> Anda untuk memantau status pendaftaran:</p>
+    <div style="font-size:32px; font-weight:800; color:var(--primary); margin:18px 0; letter-spacing:2px;">
+        <?= e($registrationResult) ?>
     </div>
+    <p>Gunakan nomor registrasi dan password yang Anda buat untuk mengakses halaman <a href="cek-status.php">Cek Status</a>.</p>
+    <a href="cek-status.php" class="btn btn-primary">Cek Status Sekarang</a>
+    <a href="index.php" class="btn btn-secondary">Ke Beranda</a>
+</div>
 <?php else: ?>
-
 <div class="card">
     <h2>Formulir Pendaftaran Mahasiswa Baru S2 Ilmu Kelautan</h2>
     <p style="color:var(--muted);">Lengkapi seluruh data berikut dengan benar. Field bertanda <span style="color:var(--danger)">*</span> wajib diisi. Ukuran maksimal tiap berkas 3 MB (PDF/JPG/PNG).</p>
@@ -197,7 +191,6 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <form method="post" enctype="multipart/form-data" novalidate>
-
         <div class="form-section">
             <div class="form-section-title">A. Data Diri</div>
             <div class="form-group">
@@ -209,12 +202,10 @@ include __DIR__ . '/includes/header.php';
                 <div class="form-group">
                     <label>Tempat Lahir <span class="req">*</span></label>
                     <input type="text" name="tempat_lahir" value="<?= e($old['tempat_lahir'] ?? '') ?>" required>
-                    <?php if (!empty($errors['tempat_lahir'])): ?><small style="color:var(--danger)"><?= e($errors['tempat_lahir']) ?></small><?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label>Tanggal Lahir <span class="req">*</span></label>
                     <input type="date" name="tanggal_lahir" value="<?= e($old['tanggal_lahir'] ?? '') ?>" required>
-                    <?php if (!empty($errors['tanggal_lahir'])): ?><small style="color:var(--danger)"><?= e($errors['tanggal_lahir']) ?></small><?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label>Jenis Kelamin <span class="req">*</span></label>
@@ -224,7 +215,6 @@ include __DIR__ . '/includes/header.php';
                             <option <?= ($old['jenis_kelamin'] ?? '') === $jk ? 'selected' : '' ?>><?= $jk ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <?php if (!empty($errors['jenis_kelamin'])): ?><small style="color:var(--danger)"><?= e($errors['jenis_kelamin']) ?></small><?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label>Agama <span class="req">*</span></label>
@@ -234,19 +224,17 @@ include __DIR__ . '/includes/header.php';
                             <option <?= ($old['agama'] ?? '') === $a ? 'selected' : '' ?>><?= $a ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <?php if (!empty($errors['agama'])): ?><small style="color:var(--danger)"><?= e($errors['agama']) ?></small><?php endif; ?>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>NIK (KTP, 16 digit) <span class="req">*</span></label>
+                    <label>NIK (16 digit) <span class="req">*</span></label>
                     <input type="text" name="nik" maxlength="16" value="<?= e($old['nik'] ?? '') ?>" required>
                     <?php if (!empty($errors['nik'])): ?><small style="color:var(--danger)"><?= e($errors['nik']) ?></small><?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label>No. HP / WhatsApp <span class="req">*</span></label>
                     <input type="text" name="no_hp" value="<?= e($old['no_hp'] ?? '') ?>" required>
-                    <?php if (!empty($errors['no_hp'])): ?><small style="color:var(--danger)"><?= e($errors['no_hp']) ?></small><?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label>Email <span class="req">*</span></label>
@@ -257,7 +245,6 @@ include __DIR__ . '/includes/header.php';
             <div class="form-group">
                 <label>Alamat Lengkap <span class="req">*</span></label>
                 <textarea name="alamat" required><?= e($old['alamat'] ?? '') ?></textarea>
-                <?php if (!empty($errors['alamat'])): ?><small style="color:var(--danger)"><?= e($errors['alamat']) ?></small><?php endif; ?>
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -290,7 +277,7 @@ include __DIR__ . '/includes/header.php';
                 <div class="form-group">
                     <label>IPK S1 <span class="req">*</span></label>
                     <input type="text" name="ipk_s1" placeholder="3.25" value="<?= e($old['ipk_s1'] ?? '') ?>" required>
-                    <small>Skala 0,00 - 4,00. Minimal 2,75</small>
+                    <small>Skala 0,00–4,00. Minimal 2,75</small>
                     <?php if (!empty($errors['ipk_s1'])): ?><small style="color:var(--danger)"><?= e($errors['ipk_s1']) ?></small><?php endif; ?>
                 </div>
             </div>
@@ -303,12 +290,7 @@ include __DIR__ . '/includes/header.php';
                     <label>Konsentrasi Program Studi <span class="req">*</span></label>
                     <select name="program_studi_pilihan" required>
                         <option value="">-- Pilih --</option>
-                        <?php foreach ([
-                            'Manajemen Sumberdaya Pesisir',
-                            'Bioteknologi Kelautan',
-                            'Konservasi Ekosistem Laut',
-                            'Perikanan Tangkap Berkelanjutan',
-                        ] as $p): ?>
+                        <?php foreach (['Manajemen Sumberdaya Pesisir','Bioteknologi Kelautan','Konservasi Ekosistem Laut','Perikanan Tangkap Berkelanjutan'] as $p): ?>
                             <option <?= ($old['program_studi_pilihan'] ?? '') === $p ? 'selected' : '' ?>><?= $p ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -317,12 +299,7 @@ include __DIR__ . '/includes/header.php';
                     <label>Jalur Masuk <span class="req">*</span></label>
                     <select name="jalur_masuk" required>
                         <option value="">-- Pilih --</option>
-                        <?php foreach ([
-                            'Reguler (Mandiri)',
-                            'Beasiswa LPDP',
-                            'Beasiswa BPI Kemendikbud',
-                            'Kerjasama Instansi',
-                        ] as $j): ?>
+                        <?php foreach (['Reguler (Mandiri)','Beasiswa LPDP','Beasiswa BPI Kemendikbud','Kerjasama Instansi'] as $j): ?>
                             <option <?= ($old['jalur_masuk'] ?? '') === $j ? 'selected' : '' ?>><?= $j ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -345,11 +322,11 @@ include __DIR__ . '/includes/header.php';
             <p style="color:var(--muted); font-size:13px;">Format: PDF, JPG, atau PNG. Ukuran maksimal 3 MB per berkas.</p>
             <div class="form-row">
                 <?php foreach (REQUIRED_FILES as $key => $label): ?>
-                    <div class="form-group">
-                        <label><?= e($label) ?> <span class="req">*</span></label>
-                        <input type="file" name="<?= $key ?>" accept=".pdf,.jpg,.jpeg,.png" required>
-                        <?php if (!empty($errors[$key])): ?><small style="color:var(--danger)"><?= e($errors[$key]) ?></small><?php endif; ?>
-                    </div>
+                <div class="form-group">
+                    <label><?= e($label) ?> <span class="req">*</span></label>
+                    <input type="file" name="<?= $key ?>" accept=".pdf,.jpg,.jpeg,.png" required>
+                    <?php if (!empty($errors[$key])): ?><small style="color:var(--danger)"><?= e($errors[$key]) ?></small><?php endif; ?>
+                </div>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -371,6 +348,5 @@ include __DIR__ . '/includes/header.php';
         </div>
     </form>
 </div>
-
 <?php endif; ?>
 <?php include __DIR__ . '/includes/footer.php'; ?>
