@@ -1,28 +1,27 @@
 {
-  "version": 2,
-  "functions": {
-    "index.php": { "runtime": "vercel-php@0.7.1" },
-    "daftar.php": { "runtime": "vercel-php@0.7.1" },
-    "cek-status.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/index.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/dashboard.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/login.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/logout.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/detail.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/download.php": { "runtime": "vercel-php@0.7.1" },
-    "admin/export.php": { "runtime": "vercel-php@0.7.1" }
-  },
-  "routes": [
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "^/admin/login$", "dest": "/admin/login.php" },
-    { "src": "^/admin/logout$", "dest": "/admin/logout.php" },
-    { "src": "^/admin/dashboard$", "dest": "/admin/dashboard.php" },
-    { "src": "^/admin/detail$", "dest": "/admin/detail.php" },
-    { "src": "^/admin/download$", "dest": "/admin/download.php" },
-    { "src": "^/admin/export$", "dest": "/admin/export.php" },
-    { "src": "^/admin/?$", "dest": "/admin/index.php" },
-    { "src": "^/daftar$", "dest": "/daftar.php" },
-    { "src": "^/cek-status$", "dest": "/cek-status.php" },
-    { "src": "^/$", "dest": "/index.php" }
-  ]
+    "version": 2,
+    "functions": {
+          "api/index.php": { "runtime": "vercel-php@0.7.1" },
+          "api/daftar.php": { "runtime": "vercel-php@0.7.1" },
+          "api/cek-status.php": { "runtime": "vercel-php@0.7.1" },
+          "api/admin/dashboard.php": { "runtime": "vercel-php@0.7.1" },
+          "api/admin/login.php": { "runtime": "vercel-php@0.7.1" },
+          "api/admin/logout.php": { "runtime": "vercel-php@0.7.1" },
+          "api/admin/detail.php": { "runtime": "vercel-php@0.7.1" },
+          "api/admin/download.php": { "runtime": "vercel-php@0.7.1" },
+          "api/admin/export.php": { "runtime": "vercel-php@0.7.1" }
+    },
+    "routes": [
+          { "src": "/assets/(.*)", "dest": "/assets/$1" },
+          { "src": "^/admin/login$", "dest": "/api/admin/login.php" },
+          { "src": "^/admin/logout$", "dest": "/api/admin/logout.php" },
+          { "src": "^/admin/dashboard$", "dest": "/api/admin/dashboard.php" },
+          { "src": "^/admin/detail$", "dest": "/api/admin/detail.php" },
+          { "src": "^/admin/download$", "dest": "/api/admin/download.php" },
+          { "src": "^/admin/export$", "dest": "/api/admin/export.php" },
+          { "src": "^/admin/?$", "dest": "/api/admin/login.php" },
+          { "src": "^/daftar$", "dest": "/api/daftar.php" },
+          { "src": "^/cek-status$", "dest": "/api/cek-status.php" },
+          { "src": "^/$", "dest": "/api/index.php" }
+    ]
 }
